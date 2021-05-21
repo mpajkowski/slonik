@@ -1,5 +1,5 @@
 use super::{AppEvent, Component, EventListener};
-use gtk::{prelude::BuilderExtManual, TextBufferExt, TextViewExt};
+use gtk::prelude::{BuilderExtManual, TextBufferExt, TextViewExt};
 
 pub struct TextView {
     text_view: gtk::TextView,
@@ -8,7 +8,7 @@ pub struct TextView {
 impl TextView {
     pub fn create(builder: &gtk::Builder) -> Self {
         let text_view: gtk::TextView = builder
-            .get_object("text_view")
+            .object("text_view")
             .expect("text_view not present in window.ui");
 
         Self::new(text_view)
@@ -32,7 +32,7 @@ impl Component for TextView {
 impl EventListener for TextView {
     fn on_event(&self, event: &AppEvent) {
         if let AppEvent::Contents { contents } = event {
-            let buf = self.text_view.get_buffer().unwrap();
+            let buf = self.text_view.buffer().unwrap();
             buf.set_text(contents);
         }
     }

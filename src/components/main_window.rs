@@ -1,6 +1,5 @@
-use gtk::{prelude::BuilderExtManual, DialogExt, GtkWindowExt, WidgetExt};
-
 use super::{AppEvent, Component, EventListener};
+use gtk::prelude::*;
 
 pub struct MainWindow {
     window: gtk::ApplicationWindow,
@@ -13,7 +12,7 @@ impl MainWindow {
 
     pub fn create(builder: &gtk::Builder, application: &gtk::Application) -> Self {
         let window: gtk::ApplicationWindow = builder
-            .get_object("mainwin")
+            .object("mainwin")
             .expect("Main window not present in window.ui");
 
         window.set_application(Some(application));

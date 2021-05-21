@@ -9,9 +9,11 @@ use components::{Component, MainWindow, Navigator, NavigatorModel, TextView};
 use anyhow::Result;
 use emit::DispatchLoop;
 use gtk::{
+    glib::Priority,
     prelude::{ApplicationExt, ApplicationExtManual},
     Builder,
 };
+use tokio::runtime::Runtime;
 use worker::Worker;
 
 fn main() -> Result<()> {
@@ -20,14 +22,11 @@ fn main() -> Result<()> {
 
     gtk::init()?;
 
-    let application = gtk::Application::new(
-        Some("com.github.gtk-rs.examples.gtktest"),
-        Default::default(),
-    )
-    .expect("Initialization failed...");
+    let application =
+        gtk::Application::new(Some("com.github.mpajkowski.slonik"), Default::default());
 
-    application.connect_activate(build_app);
-    application.run(&std::env::args().collect::<Vec<_>>());
+    application.connect_activate(move |app| build_app(app));
+    application.run();
 
     Ok(())
 }
@@ -37,10 +36,10 @@ fn build_app(app: &gtk::Application) {
     let builder = Builder::from_string(glade_src);
 
     let ctx = gtk::glib::MainContext::default();
-    ctx.push_thread_default();
 
     let mut dispatch_loop = DispatchLoop::create();
-    let worker = Worker::create(&ctx, dispatch_loop.create_emitter());
+    let worker =
+        Worker::create(dispatch_loop.create_emitter()).expect("Failed to initialize worker");
 
     let main_window = MainWindow::create(&builder, app);
     let nav_model = NavigatorModel::new(worker, dispatch_loop.create_emitter());

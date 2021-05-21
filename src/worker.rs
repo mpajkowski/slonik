@@ -1,46 +1,42 @@
 use anyhow::{anyhow, Result};
-use gtk::glib;
-use std::{cell::RefCell, pin::Pin};
+use std::{cell::RefCell, pin::Pin, sync::Arc};
+use tokio::runtime::Runtime;
 
-use futures::{channel::mpsc, StreamExt};
+use futures::{channel::mpsc, StreamExt, TryFutureExt};
 use std::future::Future;
 
 use crate::{components::AppEvent, emit::Emitter};
 
-pub type FutureTask = Pin<Box<dyn Future<Output = ()>>>;
+pub type FutureTask = Pin<Box<dyn Future<Output = ()> + Send>>;
 
-/// Calls futures on `glib::MainContext`
+/// Calls futures on tokio's `Runtime`
 #[derive(Clone)]
 pub struct Worker {
+    runtime: Arc<Runtime>,
     emitter: Emitter,
-    sender: RefCell<mpsc::UnboundedSender<FutureTask>>,
 }
 
 impl Worker {
     /// spawns `Worker` instance
-    pub fn create(ctx: &glib::MainContext, emitter: Emitter) -> Self {
+    pub fn create(emitter: Emitter) -> Result<Self> {
         let (worker_sender, worker_receiver) = mpsc::unbounded::<FutureTask>();
 
-        ctx.spawn_local_with_priority(
-            glib::source::PRIORITY_DEFAULT_IDLE,
-            worker_receiver.for_each(|f| f),
-        );
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()?;
 
-        Self {
-            sender: RefCell::new(worker_sender),
+        Ok(Self {
             emitter,
-        }
+            runtime: Arc::new(rt),
+        })
     }
 
-    /// Sends local future of output `()` to `glib::MainContext`.
+    /// Sends local future of output `()` to `tokio::Runtime`.
     ///
     /// # Arguments:
     /// - `task` - future of output `()` with `'static` lifetime
-    pub fn send_task<T: Future<Output = ()> + 'static>(&self, task: T) -> Result<()> {
-        self.sender
-            .borrow_mut()
-            .unbounded_send(Box::pin(task))
-            .map_err(|_| anyhow!("failed to send task"))
+    pub fn send_task<T: Future<Output = ()> + Send + 'static>(&self, task: T) {
+        self.runtime.spawn(task);
     }
 
     /// Sends fallible local future of output `anyhow::Result<()>` to `glib::MainContext`.
@@ -49,18 +45,13 @@ impl Worker {
     ///
     /// # Arguments:
     /// - `task` - future of output `anyhow::Result<()>` with `'static` lifetime
-    pub fn send_task_fallible<T: Future<Output = Result<()>> + 'static>(
-        &self,
-        task: T,
-    ) -> Result<()> {
+    pub fn send_task_fallible<T: Future<Output = Result<()>> + Send + 'static>(&self, task: T) {
         let emitter = self.emitter.clone();
-        self.sender
-            .borrow_mut()
-            .unbounded_send(Box::pin(async move {
-                if let Err(e) = task.await {
-                    emitter.emit(AppEvent::Err(e));
-                }
-            }))
-            .map_err(|_| anyhow!("failed to send task"))
+
+        self.runtime.spawn(async move {
+            if let Err(e) = task.await {
+                emitter.emit(AppEvent::Err(e));
+            }
+        });
     }
 }

@@ -21,20 +21,18 @@ impl NavigatorModel {
 
         let emitter = self.emitter.clone();
         self.worker.send_task_fallible(async move {
-            let resp = surf::get(url).await.map_err(|err| anyhow!(err))?;
+            let resp = reqwest::get(url).await.map_err(|err| anyhow!(err))?;
             let headers = resp
+                .headers()
                 .iter()
-                .flat_map(|(name, value)| {
-                    iter::repeat_with(move || name.as_str()).zip(value.iter())
-                })
-                .fold(String::new(), |acc, (name, value)| {
-                    format!("{}{}: {}\n", acc, name, value)
-                });
+                .try_fold(String::new(), |acc, (name, value)| {
+                    Ok::<_, anyhow::Error>(format!("{}{}: {}\n", acc, name, value.to_str()?))
+                })?;
 
             emitter.emit(AppEvent::Contents { contents: headers });
 
             Ok(())
-        })?;
+        });
 
         Ok(())
     }

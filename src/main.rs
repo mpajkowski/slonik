@@ -1,20 +1,20 @@
-pub mod components;
-mod emit;
-pub mod worker;
+pub mod debug_logger;
+pub mod event;
+pub mod model;
+pub mod pg_session;
+pub mod widgets;
 
-use std::rc::Rc;
-
-use components::{Component, MainWindow, Navigator, NavigatorModel, TextView};
-
-use anyhow::Result;
-use emit::DispatchLoop;
-use gtk::{
-    glib::Priority,
-    prelude::{ApplicationExt, ApplicationExtManual},
-    Builder,
-};
+use glib::{Object, PRIORITY_HIGH_IDLE};
 use tokio::runtime::Runtime;
-use worker::Worker;
+use widgets::MainWindow;
+
+use anyhow::{bail, Result};
+use gio::prelude::*;
+use gtk::{prelude::*, Builder};
+
+use crate::{
+    debug_logger::DebugLogger, event::DispatchLoop, pg_session::PgEventLoopProxy, widgets::Editor,
+};
 
 fn main() -> Result<()> {
     dotenv::dotenv().ok();
@@ -22,39 +22,49 @@ fn main() -> Result<()> {
 
     gtk::init()?;
 
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+
     let application =
-        gtk::Application::new(Some("com.github.mpajkowski.slonik"), Default::default());
+        gtk::Application::new(Some("com.github.mpajkowski.slonik"), Default::default())?;
 
-    application.connect_activate(move |app| build_app(app));
-    application.run();
+    application.connect_activate(move |app| {
+        let runtime = &runtime;
+        build_app(runtime, app);
+    });
 
-    Ok(())
+    let ret = application.run(&std::env::args().collect::<Vec<_>>());
+
+    if ret == 0 {
+        Ok(())
+    } else {
+        bail!("gtk retcode: {}", ret)
+    }
 }
 
-fn build_app(app: &gtk::Application) {
+fn build_app(runtime: &Runtime, app: &gtk::Application) {
     let glade_src = include_str!("../resources/window.ui");
     let builder = Builder::from_string(glade_src);
-
-    let ctx = gtk::glib::MainContext::default();
+    let _guard = runtime.enter();
+    let ctx = glib::MainContext::default();
+    ctx.push_thread_default();
 
     let mut dispatch_loop = DispatchLoop::create();
-    let worker =
-        Worker::create(dispatch_loop.create_emitter()).expect("Failed to initialize worker");
+    let _ = runtime.enter();
+    dispatch_loop.register_listener(DebugLogger);
+    dispatch_loop.register_listener(PgEventLoopProxy::initialize(dispatch_loop.create_emitter()));
+    dispatch_loop.register_listener(crate::widgets::Output::create(&builder));
 
-    let main_window = MainWindow::create(&builder, app);
-    let nav_model = NavigatorModel::new(worker, dispatch_loop.create_emitter());
-    let navigator = Navigator::create(&builder, Rc::new(nav_model));
-    let text_view = TextView::create(&builder);
+    let _editor = Editor::create(&builder, dispatch_loop.create_emitter());
+    let _main_window = MainWindow::create(&builder, app);
 
-    main_window.initialize();
-    navigator.initialize();
-    text_view.initialize();
+    ctx.spawn_local_with_priority(PRIORITY_HIGH_IDLE, dispatch_loop.listen());
+}
 
-    dispatch_loop.register_listener(Box::new(text_view));
-    dispatch_loop.register_listener(Box::new(main_window));
-
-    ctx.spawn_local_with_priority(
-        gtk::glib::source::PRIORITY_DEFAULT_IDLE,
-        dispatch_loop.listen(),
-    );
+pub fn object_or_expect<T: IsA<Object>>(builder: &gtk::Builder, object_name: &str) -> T {
+    builder
+        .get_object(object_name)
+        .unwrap_or_else(|| panic!("{} not found", object_name))
 }

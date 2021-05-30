@@ -1,8 +1,28 @@
-use crate::components::{AppEvent, EventListener};
 use futures::{
     channel::mpsc::{self, UnboundedReceiver, UnboundedSender},
     StreamExt,
 };
+
+use crate::model::pg_response::PgResponse;
+
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum AppEvent {
+    Started,
+    PgRequest(PgRequest),
+    PgResponses(Vec<PgResponse>),
+    Err(anyhow::Error),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PgRequest {
+    pub id: usize,
+    pub text: String,
+}
+
+pub trait EventListener {
+    fn on_event(&self, event: &AppEvent);
+}
 
 /// Sender which emits particular `AppEvents`
 #[derive(Clone)]
@@ -37,8 +57,8 @@ impl DispatchLoop {
         }
     }
 
-    pub fn register_listener(&mut self, listener: Box<dyn EventListener>) {
-        self.listeners.push(listener);
+    pub fn register_listener<T: EventListener + 'static>(&mut self, listener: T) {
+        self.listeners.push(Box::new(listener));
     }
 
     pub fn create_emitter(&self) -> Emitter {

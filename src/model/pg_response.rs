@@ -2,7 +2,7 @@ use tokio_postgres::SimpleQueryMessage;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Header {
-    columns: Vec<String>,
+    pub columns: Vec<String>,
 }
 
 impl Header {
@@ -22,39 +22,28 @@ impl Header {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Row {
-    values: Vec<String>,
+    pub values: Vec<Option<String>>,
 }
 
 impl Row {
-    pub fn new(values: Vec<String>) -> Self {
+    pub fn new(values: Vec<Option<String>>) -> Self {
         Self { values }
     }
 
-    pub fn push<T: Into<String>>(&mut self, value: T) {
-        self.values.push(value.into());
+    pub fn push<T: Into<String>>(&mut self, value: Option<T>) {
+        self.values.push(value.map(|x| x.into()));
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Table {
-    header: Header,
-    rows: Vec<Row>,
+    pub header: Header,
+    pub rows: Vec<Row>,
 }
 
 impl Table {
     pub fn new(header: Header, rows: Vec<Row>) -> Self {
         Self { header, rows }
-    }
-
-    pub fn as_pretty(&self) -> prettytable::Table {
-        let mut table = prettytable::Table::new();
-
-        table.add_row(self.header.columns.clone().into());
-        self.rows.iter().map(|row| &row.values).for_each(|row| {
-            table.add_row(row.into());
-        });
-
-        table
     }
 }
 
@@ -94,7 +83,7 @@ impl PgResponse {
                         .collect::<Vec<_>>();
 
                     let row_values = (0..current_columns.len())
-                        .map(|idx| row.get(idx).unwrap_or("[null]").to_string())
+                        .map(|idx| row.get(idx).map(|x| x.to_string()))
                         .collect::<Vec<_>>();
 
                     if current_columns == prev_columns {
@@ -146,26 +135,26 @@ mod test {
                 vec![];
                 ..push(cascade! {
                     Row::default();
-                    ..push("value1_1");
-                    ..push("value2_1");
-                    ..push("value3_1");
+                    ..push(Some("value1_1"));
+                    ..push(Some("value2_1"));
+                    ..push(Some("value3_1"));
                 });
                 ..push(cascade! {
                     Row::default();
-                    ..push("value1_2");
-                    ..push("value2_2");
-                    ..push("value3_2");
+                    ..push(Some("value1_2"));
+                    ..push(Some("value2_2"));
+                    ..push(Some("value3_2"));
                 });
                 ..push(cascade! {
                     Row::default();
-                    ..push("value1_3");
-                    ..push("value2_3");
-                    ..push("value3_3");
+                    ..push(Some("value1_3"));
+                    ..push(Some("value2_3"));
+                    ..push(Some("value3_3"));
                 });
             },
         };
 
-        let pretty = table.as_pretty();
-        pretty.printstd();
+        //let pretty = table.as_pretty();
+        //pretty.printstd();
     }
 }

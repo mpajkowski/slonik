@@ -2,14 +2,16 @@ use futures::{
     channel::mpsc::{self, UnboundedReceiver, UnboundedSender},
     StreamExt,
 };
+use tokio_postgres::AsyncMessage;
 
-use crate::model::pg_response::PgResponse;
+use crate::{model::pg_response::PgResponse, widgets::OutputMode};
 
 #[derive(Debug)]
-#[non_exhaustive]
 pub enum AppEvent {
     Started,
     PgRequest(PgRequest),
+    PgMessage(AsyncMessage),
+    OutputModeChanged(OutputMode),
     PgResponses(Vec<PgResponse>),
     Err(anyhow::Error),
 }
@@ -21,7 +23,7 @@ pub struct PgRequest {
 }
 
 pub trait EventListener {
-    fn on_event(&self, event: &AppEvent);
+    fn on_event(&mut self, event: &AppEvent);
 }
 
 /// Sender which emits particular `AppEvents`
@@ -68,7 +70,7 @@ impl DispatchLoop {
     pub async fn listen(mut self) {
         while let Some(event) = self.receiver.next().await {
             self.listeners
-                .iter()
+                .iter_mut()
                 .for_each(|listener| listener.on_event(&event))
         }
     }

@@ -1,11 +1,12 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::env;
 
 use anyhow::Result;
 use futures::channel::mpsc::unbounded;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::channel::mpsc::UnboundedSender;
-use futures::{stream, FutureExt, StreamExt, TryStreamExt};
+use futures::{stream, StreamExt, TryStreamExt};
 use tokio_postgres::SimpleQueryMessage;
 use tokio_postgres::{AsyncMessage, Client, Config, NoTls};
 
@@ -28,7 +29,7 @@ impl PgEventLoopProxy {
 }
 
 impl EventListener for PgEventLoopProxy {
-    fn on_event(&self, event: &AppEvent) {
+    fn on_event(&mut self, event: &AppEvent) {
         if let AppEvent::PgRequest(req) = event {
             self.event_loop_tx.unbounded_send(req.clone()).unwrap();
         }
@@ -45,7 +46,7 @@ pub async fn pg_event_loop(
         let session = match sessions.entry(id) {
             Entry::Occupied(o) => o.into_mut(),
             Entry::Vacant(v) => {
-                let session = PgSession::initialize().await?;
+                let session = PgSession::initialize(emitter.clone()).await?;
                 v.insert(session)
             }
         };
@@ -61,25 +62,32 @@ pub async fn pg_event_loop(
 
 pub struct PgSession {
     client: Client,
-    rx: UnboundedReceiver<AsyncMessage>,
 }
 
 impl PgSession {
-    async fn initialize() -> Result<Self> {
+    async fn initialize(emitter: Emitter) -> Result<Self> {
         let mut cfg = Config::new();
-        cfg.user("postgres");
-        cfg.host("localhost");
-        cfg.port(5432);
+        cfg.host(env::var("PG_HOST").as_deref().unwrap_or("localhost"));
+        cfg.port(env::var("PG_PORT").as_deref().unwrap_or("5432").parse()?);
+        cfg.user(env::var("PG_USER").as_deref().unwrap_or("postgres"));
+        if let Ok(pg_pass) = env::var("PG_PASSWORD") {
+            cfg.password(&pg_pass);
+        }
 
         let (client, mut conn) = cfg.connect(NoTls).await?;
-        let (tx, rx) = unbounded::<AsyncMessage>();
+        let (tx, mut rx) = unbounded::<AsyncMessage>();
 
         let stream = stream::poll_fn(move |cx| conn.poll_message(cx)).map_err(|e| panic!("{}", e));
-        let connection = stream.forward(tx).map(|r| r.unwrap());
+        let connection = stream.forward(tx);
 
         tokio::spawn(connection);
+        tokio::spawn(async move {
+            while let Some(async_msg) = rx.next().await {
+                emitter.emit(AppEvent::PgMessage(async_msg))
+            }
+        });
 
-        Ok(Self { client, rx })
+        Ok(Self { client })
     }
 
     async fn exec_simple_query(&mut self, text: &str) -> Result<Vec<SimpleQueryMessage>> {

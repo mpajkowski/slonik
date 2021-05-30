@@ -55,7 +55,11 @@ fn build_app(runtime: &Runtime, app: &gtk::Application) {
     let _ = runtime.enter();
     dispatch_loop.register_listener(DebugLogger);
     dispatch_loop.register_listener(PgEventLoopProxy::initialize(dispatch_loop.create_emitter()));
-    dispatch_loop.register_listener(crate::widgets::Output::create(&builder));
+    dispatch_loop.register_listener(widgets::Output::create(
+        &builder,
+        dispatch_loop.create_emitter(),
+    ));
+    dispatch_loop.register_listener(widgets::Messages::create(&builder));
 
     let _editor = Editor::create(&builder, dispatch_loop.create_emitter());
     let _main_window = MainWindow::create(&builder, app);

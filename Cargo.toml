@@ -22,5 +22,6 @@ tokio-postgres = { git = "https://github.com/mpajkowski/rust-postgres", branch =
 async-trait = "0.1.50"
 sourceview = "0.9.0"
 prettytable-rs = "0.8.0"
+csv = ""
 cascade = "1.0.0"
 itertools = "0.10.0"

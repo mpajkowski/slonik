@@ -9,8 +9,8 @@ use crate::{
 };
 
 pub struct Editor {
-    widget: sourceview::View,
-    emitter: Emitter,
+    _widget: sourceview::View,
+    _emitter: Emitter,
 }
 
 impl Editor {
@@ -61,6 +61,9 @@ impl Editor {
             });
         }
 
-        Self { widget, emitter }
+        Self {
+            _widget: widget,
+            _emitter: emitter,
+        }
     }
 }

@@ -11,18 +11,64 @@ use crate::{
 pub struct Output {
     widget: gtk::TextView,
     output_mode: OutputMode,
+    batches: Vec<PgResponse>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum OutputMode {
-    Tabular,
-    Csv,
-    TabularRaw,
+impl Output {
+    pub fn create(builder: &gtk::Builder, emitter: Emitter) -> Self {
+        let widget: gtk::TextView = object_or_expect(builder, "output");
+
+        let radio_tabular: gtk::RadioButton = object_or_expect(builder, "output-mode-tabular");
+        let radio_csv: gtk::RadioButton = object_or_expect(builder, "output-mode-csv");
+        let radio_tabular_raw: gtk::RadioButton =
+            object_or_expect(builder, "output-mode-tabular-raw");
+
+        let emitter_c = emitter.clone();
+        radio_tabular.connect_toggled(move |btn| {
+            if btn.get_active() {
+                emitter_c.emit(AppEvent::OutputModeChanged(OutputMode::Tabular))
+            }
+        });
+
+        let emitter_c = emitter.clone();
+        radio_csv.connect_toggled(move |btn| {
+            if btn.get_active() {
+                emitter_c.emit(AppEvent::OutputModeChanged(OutputMode::Csv))
+            }
+        });
+
+        radio_tabular_raw.connect_toggled(move |btn| {
+            if btn.get_active() {
+                emitter.emit(AppEvent::OutputModeChanged(OutputMode::TabularRaw))
+            }
+        });
+
+        Self {
+            widget,
+            output_mode: OutputMode::Tabular,
+            batches: vec![],
+        }
+    }
 }
 
-impl OutputMode {
+impl Output {
+    fn redraw(&self) {
+        let buf = self.widget.get_buffer().unwrap();
+        buf.set_text(&self.format_batches())
+    }
+
+    fn format_batches(&self) -> String {
+        self.batches
+            .iter()
+            .map(|batch| match batch {
+                PgResponse::Table(table) => self.format_table(&table),
+                PgResponse::CommandComplete(cc) => format!("rows_affected: {}", cc),
+            })
+            .join("\n")
+    }
+
     fn format_table(&self, table: &Table) -> String {
-        match self {
+        match self.output_mode {
             OutputMode::Tabular => Self::format_raw(table),
             OutputMode::Csv => Self::format_csv(table),
             OutputMode::TabularRaw => Self::format_raw(table),
@@ -73,61 +119,14 @@ impl OutputMode {
     }
 }
 
-impl Output {
-    pub fn create(builder: &gtk::Builder, emitter: Emitter) -> Self {
-        let widget: gtk::TextView = object_or_expect(builder, "output");
-
-        let radio_tabular: gtk::RadioButton = object_or_expect(builder, "output-mode-tabular");
-        let radio_csv: gtk::RadioButton = object_or_expect(builder, "output-mode-csv");
-        let radio_tabular_raw: gtk::RadioButton =
-            object_or_expect(builder, "output-mode-tabular-raw");
-
-        let emitter_c = emitter.clone();
-        radio_tabular.connect_toggled(move |btn| {
-            if btn.get_active() {
-                emitter_c.emit(AppEvent::OutputModeChanged(OutputMode::Tabular))
-            }
-        });
-
-        let emitter_c = emitter.clone();
-        radio_csv.connect_toggled(move |btn| {
-            if btn.get_active() {
-                emitter_c.emit(AppEvent::OutputModeChanged(OutputMode::Csv))
-            }
-        });
-
-        radio_tabular_raw.connect_toggled(move |btn| {
-            if btn.get_active() {
-                emitter.emit(AppEvent::OutputModeChanged(OutputMode::TabularRaw))
-            }
-        });
-
-        Self {
-            widget,
-            output_mode: OutputMode::Tabular,
-        }
-    }
-}
-
 impl EventListener for Output {
     fn on_event(&mut self, event: &AppEvent) {
         use tokio_postgres::Error as PgError;
 
         match event {
             AppEvent::PgResponses(pg_responses) => {
-                let buf = self.widget.get_buffer().unwrap();
-
-                let new_buffer = pg_responses
-                    .iter()
-                    .map(|response| match response {
-                        PgResponse::Table(table) => self.output_mode.format_table(table),
-                        PgResponse::CommandComplete(rows_affected) => {
-                            format!("rows affected: {}", rows_affected)
-                        }
-                    })
-                    .join("\n");
-
-                buf.set_text(&new_buffer);
+                self.batches = pg_responses.clone();
+                self.redraw();
             }
             AppEvent::Err(err) => {
                 let db_err = match err.downcast_ref::<PgError>().and_then(PgError::as_db_error) {
@@ -140,8 +139,16 @@ impl EventListener for Output {
             }
             AppEvent::OutputModeChanged(output_mode) => {
                 self.output_mode = *output_mode;
+                self.redraw();
             }
             _ => {}
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OutputMode {
+    Tabular,
+    Csv,
+    TabularRaw,
 }

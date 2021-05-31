@@ -70,7 +70,8 @@ impl PgSession {
         cfg.host(env::var("PG_HOST").as_deref().unwrap_or("localhost"));
         cfg.port(env::var("PG_PORT").as_deref().unwrap_or("5432").parse()?);
         cfg.user(env::var("PG_USER").as_deref().unwrap_or("postgres"));
-        if let Ok(pg_pass) = env::var("PG_PASSWORD") {
+        cfg.dbname(env::var("PG_DBNAME").as_deref().unwrap_or("postgres"));
+        if let Ok(pg_pass) = env::var("PG_PASS") {
             cfg.password(&pg_pass);
         }
 

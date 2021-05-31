@@ -14,4 +14,5 @@ PG_HOST (default: 'localhost')
 PG_PORT (default: '5432')
 PG_USER (default: 'postgres')
 PG_PASS (default: none)
+PG_DBNAME (default: 'postgres')
 ```

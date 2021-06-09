@@ -1,3 +1,5 @@
+use std::{sync::Arc, time::Instant};
+
 use csv::ByteRecord;
 use gtk::prelude::*;
 use itertools::Itertools;
@@ -11,7 +13,7 @@ use crate::{
 pub struct Output {
     widget: gtk::TextView,
     output_mode: OutputMode,
-    batches: Vec<PgResponse>,
+    batches: Arc<Vec<PgResponse>>,
 }
 
 impl Output {
@@ -46,7 +48,7 @@ impl Output {
         Self {
             widget,
             output_mode: OutputMode::Tabular,
-            batches: vec![],
+            batches: Arc::new(vec![]),
         }
     }
 }
@@ -58,13 +60,19 @@ impl Output {
     }
 
     fn format_batches(&self) -> String {
-        self.batches
+        let instant = Instant::now();
+        let formatted = self
+            .batches
             .iter()
             .map(|batch| match batch {
                 PgResponse::Table(table) => self.format_table(&table),
                 PgResponse::CommandComplete(cc) => format!("rows_affected: {}", cc),
             })
-            .join("\n")
+            .join("\n");
+
+        log::info!("Formatting batches took {:?}", instant.elapsed());
+
+        formatted
     }
 
     fn format_table(&self, table: &Table) -> String {
@@ -124,8 +132,8 @@ impl EventListener for Output {
         use tokio_postgres::Error as PgError;
 
         match event {
-            AppEvent::PgResponses(pg_responses) => {
-                self.batches = pg_responses.clone();
+            AppEvent::PgResponses { id, responses } => {
+                self.batches = responses.clone();
                 self.redraw();
             }
             AppEvent::Err(err) => {

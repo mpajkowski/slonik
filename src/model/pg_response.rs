@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use tokio_postgres::SimpleQueryMessage;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -55,6 +57,7 @@ pub enum PgResponse {
 
 impl PgResponse {
     pub fn process_batches(batches: Vec<SimpleQueryMessage>) -> Vec<PgResponse> {
+        let instant = Instant::now();
         let mut responses = vec![];
 
         let mut table: Option<Table> = None;
@@ -112,6 +115,8 @@ impl PgResponse {
         if let Some(table) = table {
             responses.push(PgResponse::Table(table));
         }
+
+        log::info!("Processing batches took {:?}", instant.elapsed());
 
         responses
     }

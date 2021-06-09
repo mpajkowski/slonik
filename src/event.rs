@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use futures::{
     channel::mpsc::{self, UnboundedReceiver, UnboundedSender},
     StreamExt,
@@ -11,8 +13,11 @@ pub enum AppEvent {
     Started,
     PgRequest(PgRequest),
     PgMessage(AsyncMessage),
+    PgResponses {
+        id: usize,
+        responses: Arc<Vec<PgResponse>>,
+    },
     OutputModeChanged(OutputMode),
-    PgResponses(Vec<PgResponse>),
     Err(anyhow::Error),
 }
 

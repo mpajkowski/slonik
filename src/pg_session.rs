@@ -1,6 +1,7 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::env;
+use std::sync::Arc;
 
 use anyhow::Result;
 use futures::channel::mpsc::unbounded;
@@ -52,7 +53,10 @@ pub async fn pg_event_loop(
         };
 
         emitter.emit(match session.exec_simple_query(&text).await {
-            Ok(batches) => AppEvent::PgResponses(PgResponse::process_batches(batches)),
+            Ok(batches) => AppEvent::PgResponses {
+                id,
+                responses: Arc::new(PgResponse::process_batches(batches)),
+            },
             Err(err) => AppEvent::Err(err),
         })
     }
@@ -94,25 +98,6 @@ impl PgSession {
     async fn exec_simple_query(&mut self, text: &str) -> Result<Vec<SimpleQueryMessage>> {
         let tx = self.client.transaction().await?;
         let batches = tx.simple_query(&*text).await?;
-
-        /*
-        for msg in &batches {
-            match msg {
-                SimpleQueryMessage::Row(row) => {
-                    for i in 0..row.len() {
-                        print!("{}, ", row.columns()[i].name());
-                    }
-                    println!();
-                    for i in 0..row.len() {
-                        print!("{}, ", row.get(i).unwrap_or("[null]"));
-                    }
-                    println!();
-                }
-                SimpleQueryMessage::CommandComplete(c) => println!("CC: {}", c),
-                _ => {}
-            }
-        }
-        */
 
         tx.commit().await?;
 

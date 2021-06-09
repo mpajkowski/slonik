@@ -4,17 +4,20 @@ pub mod model;
 pub mod pg_session;
 pub mod widgets;
 
-use glib::{Object, PRIORITY_HIGH_IDLE};
-use tokio::runtime::Runtime;
-use widgets::MainWindow;
-
 use anyhow::{bail, Result};
 use gio::prelude::*;
+use glib::{Object, PRIORITY_HIGH_IDLE};
 use gtk::{prelude::*, Builder};
+use mimalloc::MiMalloc;
+use tokio::runtime::Runtime;
 
 use crate::{
     debug_logger::DebugLogger, event::DispatchLoop, pg_session::PgEventLoopProxy, widgets::Editor,
 };
+use widgets::MainWindow;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 fn main() -> Result<()> {
     dotenv::dotenv().ok();

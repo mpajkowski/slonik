@@ -25,3 +25,5 @@ prettytable-rs = "0.8.0"
 csv = ""
 cascade = "1.0.0"
 itertools = "0.10.0"
+mimalloc = { version = "0.1.25", default-features = false }
+rayon = "1.5.1"

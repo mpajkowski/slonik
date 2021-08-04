@@ -12,7 +12,7 @@ use crate::{
 use super::output_mode::{create_output_mode, OutputMode};
 
 pub struct Output {
-    output_mode: Option<Box<dyn OutputMode>>,
+    output_mode: Box<dyn OutputMode>,
     output_buffer: gtk4::ScrolledWindow,
     batches: Arc<Vec<PgResponse>>,
 }
@@ -46,9 +46,11 @@ impl Output {
             }
         });
 
+        let output_mode = create_output_mode(&output_buffer, OutputModeChange::Tabular);
+
         Self {
             output_buffer,
-            output_mode: None,
+            output_mode,
             batches: Arc::new(vec![]),
         }
     }
@@ -77,11 +79,9 @@ impl Output {
 
 impl Output {
     fn format_batches(&self) {
-        if let Some(output_mode) = self.output_mode.as_ref() {
-            let instant = Instant::now();
-            output_mode.format_batches(&self.batches);
-            log::info!("Formatting batches took {:?}", instant.elapsed());
-        }
+        let instant = Instant::now();
+        self.output_mode.format_batches(&self.batches);
+        log::info!("Formatting batches took {:?}", instant.elapsed());
     }
 }
 

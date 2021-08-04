@@ -1,6 +1,6 @@
 use crate::{event::OutputModeChange, model::pg_response::PgResponse};
 
-use super::{csv::CsvOutputMode, tabular_raw::TabularRawOutputMode};
+use super::{csv::CsvOutputMode, tabular::TabularOutputMode, tabular_raw::TabularRawOutputMode};
 
 pub trait OutputMode: std::fmt::Debug {
     fn create(parent: &gtk4::ScrolledWindow) -> Self
@@ -13,10 +13,10 @@ pub trait OutputMode: std::fmt::Debug {
 pub fn create_output_mode(
     parent: &gtk4::ScrolledWindow,
     ty: OutputModeChange,
-) -> Option<Box<dyn OutputMode>> {
-    Some(match ty {
+) -> Box<dyn OutputMode> {
+    match ty {
         OutputModeChange::TabularRaw => Box::new(TabularRawOutputMode::create(parent)),
         OutputModeChange::Csv => Box::new(CsvOutputMode::create(parent)),
-        OutputModeChange::Tabular => return None,
-    })
+        OutputModeChange::Tabular => Box::new(TabularOutputMode::create(parent)),
+    }
 }

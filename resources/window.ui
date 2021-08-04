@@ -41,28 +41,17 @@
               <object class="GtkScrolledWindow">
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
+                <property name="hexpand">True</property>
+                <property name="vexpand">True</property>
                 <property name="shadow-type">in</property>
-                <child>
-                  <object class="GtkSourceView" id="editor">
-                    <property name="visible">True</property>
-                    <property name="can-focus">True</property>
-                    <property name="left-margin">2</property>
-                    <property name="right-margin">2</property>
-                    <property name="monospace">True</property>
-                    <property name="show-line-numbers">True</property>
-                    <property name="show-line-marks">True</property>
-                    <property name="tab-width">4</property>
-                    <property name="auto-indent">True</property>
-                    <property name="insert-spaces-instead-of-tabs">True</property>
-                  </object>
-                </child>
               </object>
               <packing>
-                <property name="resize">False</property>
-                <property name="shrink">True</property>
+                <property name="left-attach">0</property>
+                <property name="top-attach">1</property>
+                <property name="width">3</property>
+                <property name="height">2</property>
               </packing>
             </child>
-            <child>
               <object class="GtkNotebook">
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>

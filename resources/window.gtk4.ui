@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="gtksourceview" version="5.0"/>
+  <object class="GtkApplicationWindow" id="main_window">
+    <property name="can-focus">1</property>
+    <property name="hexpand">1</property>
+    <property name="vexpand">1</property>
+    <child>
+      <object class="GtkPaned" id="pane_horizontal">
+        <property name="position">90</property>
+        <property name="position-set">1</property>
+        <property name="wide-handle">1</property>
+        <child>
+          <object class="GtkTreeView" id="explorer">
+            <child internal-child="selection">
+              <object class="GtkTreeSelection"/>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkPaned" id="pane_vertical">
+            <property name="resize-start-child">0</property>
+            <property name="orientation">vertical</property>
+            <property name="position">173</property>
+            <property name="position-set">1</property>
+            <property name="wide-handle">1</property>
+            <child>
+              <object class="GtkScrolledWindow" id="scrolled_editor">
+              </object>
+            </child>
+            <child>
+              <object class="GtkNotebook">
+                <property name="scrollable">1</property>
+                <property name="enable-popup">1</property>
+                <child>
+                  <object class="GtkNotebookPage">
+                    <property name="tab-fill">False</property>
+                    <property name="child">
+                      <object class="GtkGrid">
+                        <property name="can-focus">0</property>
+                        <property name="row-spacing">6</property>
+                        <property name="column-homogeneous">1</property>
+                        <child>
+                          <object class="GtkScrolledWindow" id="output">
+                            <property name="hexpand">1</property>
+                            <property name="vexpand">1</property>
+                            <!--
+                            <property name="child">
+                              <object class="GtkTextView" id="output">
+                                <property name="editable">0</property>
+                                <property name="monospace">1</property>
+                              </object>
+                            </property>
+                            -->
+                            <layout>
+                              <property name="column">0</property>
+                              <property name="row">1</property>
+                              <property name="column-span">3</property>
+                              <property name="row-span">2</property>
+                            </layout>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkCheckButton" id="output-mode-tabular">
+                            <property name="label" translatable="yes">tabular</property>
+                            <property name="active">1</property>
+                            <layout>
+                              <property name="column">0</property>
+                              <property name="row">0</property>
+                            </layout>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkCheckButton" id="output-mode-csv">
+                            <property name="label" translatable="yes">csv</property>
+                            <property name="active">0</property>
+                            <property name="group">output-mode-tabular</property>
+                            <layout>
+                              <property name="column">1</property>
+                              <property name="row">0</property>
+                            </layout>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkCheckButton" id="output-mode-tabular-raw">
+                            <property name="label" translatable="yes">tabular-raw</property>
+                            <property name="active">0</property>
+                            <property name="group">output-mode-tabular</property>
+                            <layout>
+                              <property name="column">2</property>
+                              <property name="row">0</property>
+                            </layout>
+                          </object>
+                        </child>
+                      </object>
+                    </property>
+                    <property name="tab">
+                      <object class="GtkLabel">
+                        <property name="can-focus">0</property>
+                        <property name="label" translatable="yes">Output</property>
+                      </object>
+                    </property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkNotebookPage">
+                    <property name="position">1</property>
+                    <property name="child">
+                      <object class="GtkScrolledWindow">
+                        <property name="child">
+                          <object class="GtkTextView" id="messages">
+                            <property name="editable">0</property>
+                            <property name="monospace">1</property>
+                          </object>
+                        </property>
+                      </object>
+                    </property>
+                    <property name="tab">
+                      <object class="GtkLabel">
+                        <property name="can-focus">0</property>
+                        <property name="label" translatable="yes">Messages</property>
+                      </object>
+                    </property>
+                  </object>
+                </child>
+                <child>
+                  <placeholder/>
+                </child>
+                <child>
+                  <placeholder/>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>

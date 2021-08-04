@@ -129,7 +129,8 @@ mod test {
 
     #[test]
     fn prettytable() {
-        let table = Table {
+        // FIXME fix this unit test
+        let _table = Table {
             header: cascade! {
                 Header::default();
                 ..push("col1");
@@ -159,7 +160,7 @@ mod test {
             },
         };
 
-        //let pretty = table.as_pretty();
+        //let pretty = tableas_pretty();
         //pretty.printstd();
     }
 }

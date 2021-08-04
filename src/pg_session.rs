@@ -74,7 +74,7 @@ impl PgSession {
         cfg.host(env::var("PG_HOST").as_deref().unwrap_or("localhost"));
         cfg.port(env::var("PG_PORT").as_deref().unwrap_or("5432").parse()?);
         cfg.user(env::var("PG_USER").as_deref().unwrap_or("postgres"));
-        cfg.dbname(env::var("PG_DBNAME").as_deref().unwrap_or("postgres"));
+        cfg.dbname(env::var("PG_DBNAME").as_deref().unwrap_or("disputandum"));
         if let Ok(pg_pass) = env::var("PG_PASS") {
             cfg.password(&pg_pass);
         }
@@ -88,7 +88,7 @@ impl PgSession {
         tokio::spawn(connection);
         tokio::spawn(async move {
             while let Some(async_msg) = rx.next().await {
-                emitter.emit(AppEvent::PgMessage(async_msg))
+                emitter.emit(AppEvent::PgMessage(Box::new(async_msg)))
             }
         });
 
@@ -97,7 +97,7 @@ impl PgSession {
 
     async fn exec_simple_query(&mut self, text: &str) -> Result<Vec<SimpleQueryMessage>> {
         let tx = self.client.transaction().await?;
-        let batches = tx.simple_query(&*text).await?;
+        let batches = tx.simple_query(text).await?;
 
         tx.commit().await?;
 

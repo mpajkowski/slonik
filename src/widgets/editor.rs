@@ -1,69 +1,67 @@
-use gdk::EventType;
-use gtk::prelude::*;
-use sourceview::prelude::*;
-use sourceview::LanguageManagerExt;
-
-use crate::{
-    event::{AppEvent, Emitter, PgRequest},
-    object_or_expect,
-};
+use crate::event::{AppAction, AppEvent, Emitter, EventListener, PgRequest};
+use gtk4::prelude::*;
 
 pub struct Editor {
-    _widget: sourceview::View,
-    _emitter: Emitter,
+    _widget: sourceview5::View,
+    buffer: sourceview5::Buffer,
+    emitter: Emitter,
 }
 
 impl Editor {
-    pub fn create(builder: &gtk::Builder, emitter: Emitter) -> Self {
-        let widget: sourceview::View = object_or_expect(builder, "editor");
+    pub fn create(parent: &gtk4::ScrolledWindow, emitter: Emitter) -> Self {
+        let lang_mgr = sourceview5::LanguageManager::new();
+        let sql = lang_mgr.language("sql");
+        let style_scheme_mgr = sourceview5::StyleSchemeManager::new();
+        let style_scheme = style_scheme_mgr.scheme("oblivion").unwrap();
 
-        // FIXME plpgsql does not work, sql is used as a  fallback
-        let lang_mgr = sourceview::LanguageManager::new();
-        let mut search_path = lang_mgr
-            .get_search_path()
-            .into_iter()
-            .map(|gstring| gstring.to_string())
-            .collect::<Vec<_>>();
-        search_path.push("/home/marcin/proj/slonik/resources/pgsql.lang".into());
-        lang_mgr.set_search_path(&search_path.iter().map(|s| s.as_str()).collect::<Vec<_>>());
-        let sql = lang_mgr
-            .get_language("pgsql")
-            .or_else(|| lang_mgr.get_language("sql"))
-            .unwrap();
+        let buffer = sourceview5::Buffer::builder()
+            .highlight_syntax(true)
+            .highlight_matching_brackets(true)
+            .language(&sql.unwrap())
+            .enable_undo(true)
+            .style_scheme(&style_scheme)
+            .build();
 
-        let buffer = widget.get_buffer().unwrap();
-        let buffer = buffer.downcast::<sourceview::Buffer>().unwrap();
-        buffer.set_language(Some(&sql));
+        let widget = sourceview5::ViewBuilder::new()
+            .editable(true)
+            .monospace(true)
+            .show_line_numbers(true)
+            .highlight_current_line(true)
+            .visible(true)
+            .insert_spaces_instead_of_tabs(true)
+            .tab_width(2)
+            .indent(2)
+            .auto_indent(true)
+            .wrap_mode(gtk4::WrapMode::None)
+            .buffer(&buffer)
+            .build();
 
-        {
-            let emitter = emitter.clone();
-            widget.connect_key_press_event(move |widget, key_event| {
-                if key_event.get_event_type() == EventType::KeyPress
-                    && key_event.get_keyval() == gdk::keys::constants::F5
-                    && widget.is_focus()
-                {
-                    let buffer = widget.get_buffer().unwrap();
-
-                    let (begin, end) = if buffer.get_has_selection() {
-                        buffer.get_selection_bounds().unwrap()
-                    } else {
-                        buffer.get_bounds()
-                    };
-
-                    let text = buffer.get_text(&begin, &end, false).unwrap();
-                    emitter.emit(AppEvent::PgRequest(PgRequest {
-                        id: 0,
-                        text: text.into(),
-                    }));
-                }
-
-                Inhibit(false)
-            });
-        }
+        parent.set_child(Some(&widget));
 
         Self {
             _widget: widget,
-            _emitter: emitter,
+            buffer,
+            emitter,
+        }
+    }
+}
+
+impl EventListener for Editor {
+    fn on_event(&mut self, event: &AppEvent) {
+        if let AppEvent::AppAction(AppAction::FetchRows) = event {
+            let buffer = &self.buffer;
+
+            let (begin, end) = if buffer.has_selection() {
+                buffer.selection_bounds().unwrap()
+            } else {
+                buffer.bounds()
+            };
+
+            let text = buffer.text(&begin, &end, false);
+            self.emitter.emit(AppEvent::PgRequest(PgRequest {
+                id: 0,
+                text: text.into(),
+            }));
         }
     }
 }

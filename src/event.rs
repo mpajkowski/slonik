@@ -6,19 +6,32 @@ use futures::{
 };
 use tokio_postgres::AsyncMessage;
 
-use crate::{model::pg_response::PgResponse, widgets::OutputMode};
+use crate::model::pg_response::PgResponse;
 
 #[derive(Debug)]
 pub enum AppEvent {
     Started,
+    AppAction(AppAction),
     PgRequest(PgRequest),
-    PgMessage(AsyncMessage),
+    PgMessage(Box<AsyncMessage>),
     PgResponses {
         id: usize,
         responses: Arc<Vec<PgResponse>>,
     },
-    OutputModeChanged(OutputMode),
+    OutputModeChanged(OutputModeChange),
     Err(anyhow::Error),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OutputModeChange {
+    TabularRaw,
+    Csv,
+    Tabular,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum AppAction {
+    FetchRows,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -48,13 +61,13 @@ impl Emitter {
 }
 
 /// Dispatches events to subscribers
-pub struct DispatchLoop {
+pub struct EventDispatcher {
     sender: UnboundedSender<AppEvent>,
     receiver: UnboundedReceiver<AppEvent>,
     listeners: Vec<Box<dyn EventListener>>,
 }
 
-impl DispatchLoop {
+impl EventDispatcher {
     pub fn create() -> Self {
         let (sender, receiver) = mpsc::unbounded();
         Self {
